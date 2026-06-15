@@ -4,6 +4,8 @@ import { useOptimistic } from "react";
 import { Composer } from "@/components/Composer";
 import { renderMessageHtmlClient } from "@/lib/emotes-client";
 
+export type ClientUser = { name: string; image: string | null };
+
 type Message = {
   id: string;
   authorName: string | null;
@@ -18,6 +20,7 @@ type ChatClientProps = {
   chatId: string;
   title: string;
   messages: Message[];
+  currentUser: ClientUser;
   action: (formData: FormData) => void | Promise<void>;
 };
 
@@ -32,13 +35,36 @@ function Avatar({ src, name, bot }: { src?: string | null; name?: string | null;
   return <div className="avatar">{(name || "?").slice(0, 1).toUpperCase()}</div>;
 }
 
-export function ChatClient({ chatId, title, messages, action }: ChatClientProps) {
+export function MessageList({ messages }: { messages: Message[] }) {
+  return (
+    <section className="messages">
+      {messages.map(message => {
+        const isBot = message.role === "assistant";
+        const name = isBot ? "mlntcan🤖d" : (message.authorName || "friend");
+        return (
+          <article key={message.id} className={`message ${messageOnlyEmotes(message.content) ? "only-emotes" : ""}`}>
+            <Avatar src={message.authorImage} name={name} bot={isBot} />
+            <div>
+              <div>
+                <span className="name">{name}</span>
+                <span className="time">{new Date(message.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="bubble" dangerouslySetInnerHTML={{ __html: message.html ?? renderMessageHtmlClient(message.content) }} />
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+export function ChatClient({ chatId, title, messages, currentUser, action }: ChatClientProps) {
   const [optimisticMessages, addOptimistic] = useOptimistic(messages, (state, content: string) => [
     ...state,
     {
       id: `pending-${Date.now()}`,
-      authorName: "you",
-      authorImage: null,
+      authorName: currentUser.name,
+      authorImage: currentUser.image,
       role: "user" as const,
       content,
       createdAt: new Date().toISOString(),
@@ -47,31 +73,12 @@ export function ChatClient({ chatId, title, messages, action }: ChatClientProps)
 
   return (
     <>
-      <section className="messages">
-        {optimisticMessages.map(message => {
-          const isBot = message.role === "assistant";
-          const name = isBot ? "mlntcan🤖d" : (message.authorName || "friend");
-          return (
-            <article key={message.id} className={`message ${messageOnlyEmotes(message.content) ? "only-emotes" : ""}`}>
-              <Avatar src={message.authorImage} name={name} bot={isBot} />
-              <div>
-                <div>
-                  <span className="name">{name}</span>
-                  <span className="time">{new Date(message.createdAt).toLocaleString()}</span>
-                </div>
-                <div className="bubble" dangerouslySetInnerHTML={{ __html: message.html ?? renderMessageHtmlClient(message.content) }} />
-              </div>
-            </article>
-          );
-        })}
-      </section>
+      <MessageList messages={optimisticMessages} />
       <Composer
         chatId={chatId}
         placeholder={`Message #${title}`}
-        action={async formData => {
-          addOptimistic(String(formData.get("content") ?? ""));
-          await action(formData);
-        }}
+        action={action}
+        onOptimistic={addOptimistic}
       />
     </>
   );

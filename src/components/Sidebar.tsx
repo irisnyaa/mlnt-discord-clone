@@ -8,7 +8,7 @@ function Initial({ name }: { name?: string | null }) {
 
 export function Sidebar({ chats, activeId }: { chats: ChatRow[]; activeId?: string }) {
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" id="chat-list">
       <div className="brand">
         <span>mlnt</span>
         <small>chat</small>
