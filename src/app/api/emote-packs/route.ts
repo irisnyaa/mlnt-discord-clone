@@ -8,8 +8,8 @@ const emoteSchema = z.object({
   name: z.string().regex(/^[A-Za-z0-9_]{2,32}$/),
   animated: z.boolean(),
   format: z.enum(["webp", "png", "gif", "avif"]),
-  sourceUrl: z.string().url().optional(),
-  assetPath: z.string().optional(),
+  sourceUrl: z.string().url().optional().nullable(),
+  assetPath: z.string().optional().nullable(),
   discordSyntax: z.string(),
   shortcode: z.string(),
 });
@@ -20,7 +20,7 @@ const packSchema = z.object({
   emotes: z.array(emoteSchema),
 });
 
-function validAssetPath(path?: string) {
+function validAssetPath(path?: string | null) {
   return !path || (!path.startsWith("/") && !path.includes("..") && !/^https?:\/\//i.test(path));
 }
 

@@ -41,7 +41,36 @@ npm start
 
 Spec: `docs/emote-pack-spec.md`
 
-Import one JSON emote pack after signing in:
+### Export from Discord/Vencord
+
+1. Open Discord web/desktop with Vencord enabled.
+2. Open DevTools console.
+3. Paste `docs/vencord-emote-exporter.user.js` and press Enter.
+4. Pick servers by number/id/range, or type `all`.
+5. The script downloads `mlnt-emote-packs.json`.
+
+The exporter is JSON-only for now: it stores Discord CDN `sourceUrl`s in the pack. That is enough for the web app to render emotes.
+
+### Add emotes to the website
+
+Sign in, open:
+
+```text
+/emotes
+```
+
+Upload `mlnt-emote-packs.json` or a single `emote-pack.json`. The app imports each pack into SQLite.
+
+After import, messages can use:
+
+```text
+:name:
+:pack-slug/name:
+<:name:id>
+<a:name:id>
+```
+
+CLI import also works if you have an authenticated cookie jar:
 
 ```bash
 curl -X POST https://your-domain.example/api/emote-packs \
