@@ -89,18 +89,38 @@ export function MessageList({ messages, emotes }: { messages: Message[]; emotes:
 export function ChatClient({ chatId, title, messages: initialMessages, currentUser, emotes }: ChatClientProps) {
   const [messages, setMessages] = useState(initialMessages);
 
+  async function syncMessages() {
+    const res = await fetch(`/api/chats/${chatId}/messages`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.messages)) setMessages(data.messages);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (!cancelled) await syncMessages();
+    };
+    const interval = window.setInterval(tick, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [chatId]);
+
   async function send(content: string) {
     const stamp = Date.now();
+    const pendingUserId = `pending-user-${stamp}`;
+    const pendingBotId = `pending-bot-${stamp}`;
     const userMessage: Message = {
-      id: `pending-user-${stamp}`,
+      id: pendingUserId,
       authorName: currentUser.name,
       authorImage: currentUser.image,
       role: "user",
       content,
       createdAt: new Date().toISOString(),
     };
-    const botId = `pending-bot-${stamp}`;
-    setMessages(state => [...state, userMessage, { id: botId, authorName: null, authorImage: null, role: "assistant", content: "", createdAt: new Date().toISOString() }]);
+    setMessages(state => [...state, userMessage, { id: pendingBotId, authorName: null, authorImage: null, role: "assistant", content: "", createdAt: new Date().toISOString() }]);
 
     const res = await fetch(`/api/chats/${chatId}/messages`, {
       method: "POST",
@@ -108,14 +128,24 @@ export function ChatClient({ chatId, title, messages: initialMessages, currentUs
       body: JSON.stringify({ content }),
     });
     if (!res.ok) {
-      setMessages(state => state.map(m => m.id === botId ? { ...m, content: "brb" } : m));
+      setMessages(state => state.map(m => m.id === pendingBotId ? { ...m, content: "brb" } : m));
       return;
     }
+    let assistantId = pendingBotId;
     await readNdjson(res, event => {
+      if (event.type === "ack") {
+        assistantId = event.assistantMessageId;
+        setMessages(state => state.map(m => {
+          if (m.id === pendingUserId) return { ...m, id: event.userMessageId };
+          if (m.id === pendingBotId) return { ...m, id: event.assistantMessageId };
+          return m;
+        }));
+      }
       if (event.type === "delta") {
-        setMessages(state => state.map(m => m.id === botId ? { ...m, content: m.content + event.content } : m));
+        setMessages(state => state.map(m => m.id === assistantId ? { ...m, content: m.content + event.content } : m));
       }
     });
+    await syncMessages();
   }
 
   return (

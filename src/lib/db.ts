@@ -140,6 +140,10 @@ export function addMessage(input: { id: string; chatId: string; authorId?: strin
   tx();
 }
 
+export function updateMessageContent(id: string, content: string) {
+  db.prepare("UPDATE messages SET content = ? WHERE id = ?").run(content, id);
+}
+
 export type EmoteRow = {
   id: string;
   packId: string;
