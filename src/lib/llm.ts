@@ -5,7 +5,7 @@ const SYSTEM = process.env.MODEL_SYSTEM_PROMPT ?? "You are mlntcandy, a casual D
 
 function contextFromMessages(messages: MessageRow[], userText: string) {
   const window = messages.slice(-16).map(m => {
-    const name = m.role === "assistant" ? "mlntcandy" : (m.authorName || "other_1");
+    const name = m.role === "assistant" ? "mlntcan🤖d" : (m.authorName || "other_1");
     return `${name}: ${m.content}`;
   });
   window.push(`other_1: ${userText}`);
@@ -16,13 +16,10 @@ function stripThinking(text: string) {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
-export async function generateReply(messages: MessageRow[], userText: string) {
+async function chatCompletion(messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, maxTokens: number) {
   const payload = {
     model: "local",
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: contextFromMessages(messages, userText) },
-    ],
+    messages,
     temperature: 0.8,
     top_k: 64,
     repeat_penalty: 1.1,
@@ -30,7 +27,7 @@ export async function generateReply(messages: MessageRow[], userText: string) {
     top_p: 0.95,
     min_p: 0.0,
     chat_template_kwargs: { enable_thinking: false },
-    max_tokens: 220,
+    max_tokens: maxTokens,
     stream: false,
   };
 
@@ -45,4 +42,24 @@ export async function generateReply(messages: MessageRow[], userText: string) {
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content ?? "";
   return stripThinking(content) || "...";
+}
+
+export async function generateReply(messages: MessageRow[], userText: string) {
+  return chatCompletion([
+    { role: "system", content: SYSTEM },
+    { role: "user", content: contextFromMessages(messages, userText) },
+  ], 220);
+}
+
+export async function generateTitle(firstMessage: string, firstReply: string) {
+  const title = await chatCompletion([
+    { role: "system", content: "Generate a short chat title. Return only the title, no quotes, no punctuation unless needed. 2-5 words." },
+    { role: "user", content: `User: ${firstMessage}\nReply: ${firstReply}` },
+  ], 24);
+
+  return title
+    .replace(/^['"`]+|['"`]+$/g, "")
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .slice(0, 80) || "new chat";
 }

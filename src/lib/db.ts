@@ -104,6 +104,14 @@ export function createChat(input: { id: string; title: string; creatorId: string
   db.prepare("INSERT INTO chats (id, title, creator_id) VALUES (?, ?, ?)").run(input.id, input.title, input.creatorId);
 }
 
+export function updateChatTitle(id: string, title: string) {
+  db.prepare("UPDATE chats SET title = ?, updated_at = datetime('now') WHERE id = ?").run(title, id);
+}
+
+export function deleteChat(id: string) {
+  db.prepare("DELETE FROM chats WHERE id = ?").run(id);
+}
+
 export function getChat(id: string): ChatRow | undefined {
   return db.prepare(`
     SELECT c.id, c.title, c.creator_id creatorId, u.name creatorName, u.image creatorImage,

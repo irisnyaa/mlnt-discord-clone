@@ -3,19 +3,37 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { addMessage, createChat, getChat, listMessages } from "@/lib/db";
-import { generateReply } from "@/lib/llm";
+import { addMessage, createChat, deleteChat, getChat, listMessages, updateChatTitle } from "@/lib/db";
+import { generateReply, generateTitle } from "@/lib/llm";
 
-const chatSchema = z.object({ title: z.string().trim().min(1).max(80) });
 const messageSchema = z.object({ chatId: z.string().min(1), content: z.string().trim().min(1).max(4000) });
+const firstMessageSchema = z.object({ content: z.string().trim().min(1).max(4000) });
+const deleteSchema = z.object({ chatId: z.string().min(1) });
 
-export async function createChatAction(formData: FormData) {
+export async function newChatAction() {
+  "use server";
+  redirect("/chats/new");
+}
+
+export async function startChatAction(formData: FormData) {
   "use server";
   const user = await requireUser();
-  const parsed = chatSchema.parse({ title: formData.get("title") });
-  const id = randomUUID();
-  createChat({ id, title: parsed.title, creatorId: user.id });
-  redirect(`/chats/${id}`);
+  const parsed = firstMessageSchema.parse({ content: formData.get("content") });
+  const chatId = randomUUID();
+  createChat({ id: chatId, title: "new chat", creatorId: user.id });
+  addMessage({ id: randomUUID(), chatId, authorId: user.id, role: "user", content: parsed.content });
+
+  let reply = "brb";
+  try {
+    reply = await generateReply([], parsed.content);
+  } catch {}
+  addMessage({ id: randomUUID(), chatId, role: "assistant", content: reply });
+
+  try {
+    updateChatTitle(chatId, await generateTitle(parsed.content, reply));
+  } catch {}
+
+  redirect(`/chats/${chatId}`);
 }
 
 export async function sendMessageAction(formData: FormData) {
@@ -36,4 +54,13 @@ export async function sendMessageAction(formData: FormData) {
   }
 
   revalidatePath(`/chats/${parsed.chatId}`);
+}
+
+export async function deleteChatAction(formData: FormData) {
+  "use server";
+  await requireUser();
+  const parsed = deleteSchema.parse({ chatId: formData.get("chatId") });
+  deleteChat(parsed.chatId);
+  revalidatePath("/");
+  redirect("/");
 }
