@@ -32,7 +32,6 @@ export function Sidebar({ chats, activeId }: { chats: ChatRow[]; activeId?: stri
         ))}
       </nav>
       <div className="sidebar-actions">
-        <Link href="/emotes" className="btn secondary full">Emotes</Link>
         <form className="new-chat" action={newChatAction}>
           <button className="btn full" type="submit">New chat</button>
         </form>

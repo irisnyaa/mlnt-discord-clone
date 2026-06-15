@@ -1,11 +1,12 @@
 import { NewChatClient } from "@/components/NewChatClient";
 import { Sidebar } from "@/components/Sidebar";
 import { requireUser } from "@/lib/auth";
-import { listChats } from "@/lib/db";
+import { listChats, listEmotes } from "@/lib/db";
 
 export default async function NewChatPage() {
   const user = await requireUser();
   const chats = listChats();
+  const emotes = listEmotes();
   return (
     <div className="app">
       <Sidebar chats={chats} />
@@ -18,7 +19,10 @@ export default async function NewChatPage() {
             <div className="top-sub">start typing</div>
           </div>
         </header>
-        <NewChatClient currentUser={{ name: user.name, image: user.image }} />
+        <NewChatClient
+          currentUser={{ name: user.name, image: user.image }}
+          emotes={emotes.map(({ id, packSlug, name, sourceUrl, assetPath }) => ({ id, packSlug, name, sourceUrl, assetPath }))}
+        />
       </main>
     </div>
   );

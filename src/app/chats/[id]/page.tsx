@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import { ChatClient } from "@/components/ChatClient";
 import { Sidebar } from "@/components/Sidebar";
 import { requireUser } from "@/lib/auth";
-import { getChat, listChats, listMessages } from "@/lib/db";
+import { getChat, listChats, listEmotes, listMessages } from "@/lib/db";
 import { renderMessageHtml } from "@/lib/emotes";
 
 export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [chats, chat, messages] = [listChats(), getChat(id), listMessages(id)];
+  const [chats, chat, messages, emotes] = [listChats(), getChat(id), listMessages(id), listEmotes()];
   if (!chat) notFound();
 
   return (
@@ -28,6 +28,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
           title={chat.title}
           messages={messages.map(message => ({ ...message, html: renderMessageHtml(message.content) }))}
           currentUser={{ name: user.name, image: user.image }}
+          emotes={emotes.map(({ id, packSlug, name, sourceUrl, assetPath }) => ({ id, packSlug, name, sourceUrl, assetPath }))}
         />
       </main>
     </div>

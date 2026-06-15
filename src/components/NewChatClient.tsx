@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Composer } from "@/components/Composer";
 import { MessageList, readNdjson, type ClientUser } from "@/components/ChatClient";
+import type { ClientEmote } from "@/lib/emotes-client";
 
 type Message = {
   id: string;
@@ -14,9 +15,9 @@ type Message = {
   createdAt: string;
 };
 
-type NewChatClientProps = { currentUser: ClientUser };
+type NewChatClientProps = { currentUser: ClientUser; emotes: ClientEmote[] };
 
-export function NewChatClient({ currentUser }: NewChatClientProps) {
+export function NewChatClient({ currentUser, emotes }: NewChatClientProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
 
@@ -55,7 +56,7 @@ export function NewChatClient({ currentUser }: NewChatClientProps) {
 
   return (
     <>
-      {messages.length ? <MessageList messages={messages} /> : <section className="messages"><div className="empty">send a message to start</div></section>}
+      {messages.length ? <MessageList messages={messages} emotes={emotes} /> : <section className="messages"><div className="empty">send a message to start</div></section>}
       <Composer placeholder="Message #new-chat" disabledAfterSubmit onSubmitContent={start} />
     </>
   );

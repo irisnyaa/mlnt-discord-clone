@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
-import { renderMessageHtmlClient } from "@/lib/emotes-client";
+import { renderMessageHtmlClient, type ClientEmote } from "@/lib/emotes-client";
 
 export type ClientUser = { name: string; image: string | null };
 
@@ -21,6 +21,7 @@ type ChatClientProps = {
   title: string;
   messages: Message[];
   currentUser: ClientUser;
+  emotes: ClientEmote[];
 };
 
 async function readNdjson(res: Response, onEvent: (event: any) => void) {
@@ -56,7 +57,7 @@ function Avatar({ src, name, bot }: { src?: string | null; name?: string | null;
   return <div className="avatar">{(name || "?").slice(0, 1).toUpperCase()}</div>;
 }
 
-export function MessageList({ messages }: { messages: Message[] }) {
+export function MessageList({ messages, emotes }: { messages: Message[]; emotes: ClientEmote[] }) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -75,7 +76,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
                 <span className="name">{name}</span>
                 <span className="time">{new Date(message.createdAt).toLocaleString()}</span>
               </div>
-              <div className="bubble" dangerouslySetInnerHTML={{ __html: message.html ?? renderMessageHtmlClient(message.content || "…") }} />
+              <div className="bubble" dangerouslySetInnerHTML={{ __html: message.html ?? renderMessageHtmlClient(message.content || "…", emotes) }} />
             </div>
           </article>
         );
@@ -85,7 +86,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
   );
 }
 
-export function ChatClient({ chatId, title, messages: initialMessages, currentUser }: ChatClientProps) {
+export function ChatClient({ chatId, title, messages: initialMessages, currentUser, emotes }: ChatClientProps) {
   const [messages, setMessages] = useState(initialMessages);
 
   async function send(content: string) {
@@ -119,7 +120,7 @@ export function ChatClient({ chatId, title, messages: initialMessages, currentUs
 
   return (
     <>
-      <MessageList messages={messages} />
+      <MessageList messages={messages} emotes={emotes} />
       <Composer placeholder={`Message #${title}`} onSubmitContent={send} />
     </>
   );
