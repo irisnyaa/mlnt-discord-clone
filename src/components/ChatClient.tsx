@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
 import { renderMessageHtmlClient } from "@/lib/emotes-client";
 
@@ -28,17 +28,21 @@ async function readNdjson(res: Response, onEvent: (event: any) => void) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const parseLine = (line: string) => {
+    if (!line.trim()) return;
+    onEvent(JSON.parse(line));
+  };
+
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      onEvent(JSON.parse(line));
-    }
+    for (const line of lines) parseLine(line);
   }
+  buffer += decoder.decode();
+  if (buffer.trim()) parseLine(buffer);
 }
 
 function messageOnlyEmotes(content: string) {
@@ -53,6 +57,11 @@ function Avatar({ src, name, bot }: { src?: string | null; name?: string | null;
 }
 
 export function MessageList({ messages }: { messages: Message[] }) {
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
+
   return (
     <section className="messages">
       {messages.map(message => {
@@ -66,11 +75,12 @@ export function MessageList({ messages }: { messages: Message[] }) {
                 <span className="name">{name}</span>
                 <span className="time">{new Date(message.createdAt).toLocaleString()}</span>
               </div>
-              <div className="bubble" dangerouslySetInnerHTML={{ __html: message.html ?? renderMessageHtmlClient(message.content) }} />
+              <div className="bubble" dangerouslySetInnerHTML={{ __html: message.html ?? renderMessageHtmlClient(message.content || "…") }} />
             </div>
           </article>
         );
       })}
+      <div ref={endRef} />
     </section>
   );
 }
@@ -79,15 +89,16 @@ export function ChatClient({ chatId, title, messages: initialMessages, currentUs
   const [messages, setMessages] = useState(initialMessages);
 
   async function send(content: string) {
+    const stamp = Date.now();
     const userMessage: Message = {
-      id: `pending-user-${Date.now()}`,
+      id: `pending-user-${stamp}`,
       authorName: currentUser.name,
       authorImage: currentUser.image,
       role: "user",
       content,
       createdAt: new Date().toISOString(),
     };
-    const botId = `pending-bot-${Date.now()}`;
+    const botId = `pending-bot-${stamp}`;
     setMessages(state => [...state, userMessage, { id: botId, authorName: null, authorImage: null, role: "assistant", content: "", createdAt: new Date().toISOString() }]);
 
     const res = await fetch(`/api/chats/${chatId}/messages`, {

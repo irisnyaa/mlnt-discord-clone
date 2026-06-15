@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 
 type ComposerProps = {
   placeholder: string;
@@ -11,18 +11,20 @@ type ComposerProps = {
 export function Composer({ placeholder, disabledAfterSubmit = false, onSubmitContent }: ComposerProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const [locked, setLocked] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const disabled = locked || isPending;
+  const [submitting, setSubmitting] = useState(false);
+  const disabled = submitting;
 
   function submit(formData: FormData) {
     const value = String(formData.get("content") ?? "").trim();
     if (!value || disabled) return;
-    if (disabledAfterSubmit) setLocked(true);
+
     textRef.current!.value = "";
-    startTransition(async () => {
-      await onSubmitContent(value);
-      if (!disabledAfterSubmit) setLocked(false);
+    if (disabledAfterSubmit) setSubmitting(true);
+
+    // Important: do not wrap this in useTransition. Optimistic chat updates must
+    // render synchronously before the slow model/network work starts.
+    void Promise.resolve(onSubmitContent(value)).finally(() => {
+      if (!disabledAfterSubmit) setSubmitting(false);
     });
   }
 
