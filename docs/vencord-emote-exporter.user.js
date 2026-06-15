@@ -5,23 +5,16 @@
  * 1. Open Discord with Vencord enabled.
  * 2. Open DevTools console.
  * 3. Paste this whole file and press Enter.
- * 4. Pick servers in the prompt. It downloads mlnt-emote-packs.json.
+ * 4. A small picker appears in the page. Select servers, export JSON.
  *
- * This exports JSON-only packs using Discord CDN sourceUrl values. The web app can
- * import these directly; it does not need a zip unless you want fully self-hosted assets later.
+ * JSON-only export: uses Discord CDN sourceUrl values. The website imports it directly.
  */
 (async function mlntExportEmotes() {
   const schema = "mlnt-emote-pack/v1";
   const librarySchema = "mlnt-emote-library/v1";
 
   function slugify(input) {
-    return String(input || "server")
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || "server";
+    return String(input || "server").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64) || "server";
   }
 
   function downloadJson(filename, value) {
@@ -58,111 +51,97 @@
   }
 
   function getGuildEmojis(EmojiStore, guildId) {
-    const raw =
-      EmojiStore.getGuildEmoji?.(guildId) ||
-      EmojiStore.getGuildEmojis?.(guildId) ||
-      EmojiStore.getEmojiByGuildId?.(guildId) ||
-      [];
+    const raw = EmojiStore.getGuildEmoji?.(guildId) || EmojiStore.getGuildEmojis?.(guildId) || EmojiStore.getEmojiByGuildId?.(guildId) || [];
     if (Array.isArray(raw)) return raw;
     if (raw instanceof Map) return [...raw.values()];
     if (typeof raw === "object") return Object.values(raw);
     return [];
   }
 
-  const { GuildStore, EmojiStore } = getStores();
-  const guilds = Object.values(GuildStore.getGuilds())
-    .map(g => ({ id: g.id, name: g.name, icon: g.icon }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  function showPicker(guilds) {
+    return new Promise(resolve => {
+      document.getElementById("mlnt-emote-exporter")?.remove();
+      const root = document.createElement("div");
+      root.id = "mlnt-emote-exporter";
+      root.style.cssText = "position:fixed;inset:24px;z-index:999999;background:#111318;color:#f2f3f5;border:1px solid #333744;border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.55);font:14px system-ui;display:flex;flex-direction:column;overflow:hidden";
+      root.innerHTML = `
+        <div style="padding:14px 16px;border-bottom:1px solid #333744;display:flex;gap:12px;align-items:center;justify-content:space-between">
+          <div><b>mlnt emote exporter</b><div style="color:#949ba4;font-size:12px">select servers to export</div></div>
+          <button data-close style="background:#313338;color:#fff;border:0;border-radius:8px;padding:8px 10px;cursor:pointer">close</button>
+        </div>
+        <div style="padding:12px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #333744">
+          <button data-all style="background:#5865f2;color:white;border:0;border-radius:8px;padding:8px 10px;cursor:pointer">select all</button>
+          <button data-none style="background:#313338;color:white;border:0;border-radius:8px;padding:8px 10px;cursor:pointer">select none</button>
+          <input data-filter placeholder="filter servers" style="flex:1;background:#1e1f26;color:#fff;border:1px solid #333744;border-radius:8px;padding:8px" />
+          <button data-export style="background:#23a55a;color:white;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700">export selected</button>
+        </div>
+        <div data-list style="overflow:auto;padding:10px 16px;display:grid;gap:6px"></div>
+      `;
+      document.body.appendChild(root);
 
-  const rows = guilds.map((g, i) => {
-    const count = getGuildEmojis(EmojiStore, g.id).length;
-    return `${String(i + 1).padStart(3, " ")}. ${g.name} (${count}) [${g.id}]`;
-  });
+      const list = root.querySelector("[data-list]");
+      const filter = root.querySelector("[data-filter]");
+      const selected = new Set(guilds.filter(g => g.count > 0).map(g => g.id));
 
-  const answer = prompt(
-    `Pick servers to export. Use numbers, IDs, ranges, or "all".\n\nExamples: 1,4,9-12 or all\n\n${rows.join("\n")}`,
-    "all"
-  );
-  if (!answer) return console.log("mlnt export cancelled");
-
-  const selectedIndexes = new Set();
-  const selectedIds = new Set();
-  const trimmed = answer.trim().toLowerCase();
-  if (trimmed === "all") {
-    guilds.forEach((_, i) => selectedIndexes.add(i));
-  } else {
-    for (const part of answer.split(/[,\s]+/).map(s => s.trim()).filter(Boolean)) {
-      if (/^\d+-\d+$/.test(part)) {
-        const [a, b] = part.split("-").map(Number);
-        for (let n = Math.min(a, b); n <= Math.max(a, b); n++) selectedIndexes.add(n - 1);
-      } else if (/^\d{5,}$/.test(part)) {
-        if (part.length > 6) selectedIds.add(part);
-        else selectedIndexes.add(Number(part) - 1);
+      function render() {
+        const q = filter.value.toLowerCase();
+        list.innerHTML = "";
+        for (const guild of guilds) {
+          if (q && !guild.name.toLowerCase().includes(q) && !guild.id.includes(q)) continue;
+          const label = document.createElement("label");
+          label.style.cssText = "display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#1e1f26;border:1px solid #292c36;border-radius:10px;padding:10px;cursor:pointer";
+          label.innerHTML = `<input type="checkbox" ${selected.has(guild.id) ? "checked" : ""}/><span></span><code style="color:#949ba4"></code>`;
+          label.querySelector("span").textContent = guild.name;
+          label.querySelector("code").textContent = `${guild.count} emotes`;
+          label.querySelector("input").onchange = e => e.currentTarget.checked ? selected.add(guild.id) : selected.delete(guild.id);
+          list.appendChild(label);
+        }
       }
-    }
+
+      root.querySelector("[data-close]").onclick = () => { root.remove(); resolve([]); };
+      root.querySelector("[data-all]").onclick = () => { guilds.forEach(g => selected.add(g.id)); render(); };
+      root.querySelector("[data-none]").onclick = () => { selected.clear(); render(); };
+      root.querySelector("[data-export]").onclick = () => { const ids = [...selected]; root.remove(); resolve(ids); };
+      filter.oninput = render;
+      render();
+    });
   }
 
-  const selectedGuilds = guilds.filter((g, i) => selectedIndexes.has(i) || selectedIds.has(g.id));
-  if (!selectedGuilds.length) throw new Error("No valid guilds selected.");
+  const { GuildStore, EmojiStore } = getStores();
+  const guilds = Object.values(GuildStore.getGuilds()).map(g => ({ id: g.id, name: g.name, icon: g.icon, count: getGuildEmojis(EmojiStore, g.id).length })).sort((a, b) => a.name.localeCompare(b.name));
+  const selectedIds = await showPicker(guilds);
+  if (!selectedIds.length) return console.log("mlnt export cancelled/no guilds selected");
+  const selectedGuilds = guilds.filter(g => selectedIds.includes(g.id));
 
   const generatedAt = new Date().toISOString();
   const packs = selectedGuilds.map(guild => {
     const slug = slugify(guild.name);
     const packId = `discord-${guild.id}`;
-    const emotes = getGuildEmojis(EmojiStore, guild.id)
-      .filter(e => e?.id && e?.name)
-      .map(e => {
-        const animated = Boolean(e.animated);
-        const format = animated ? "gif" : "webp";
-        const sourceUrl = discordEmojiUrl(e.id, animated);
-        return {
-          id: String(e.id),
-          name: String(e.name),
-          aliases: [],
-          animated,
-          format,
-          mime: animated ? "image/gif" : "image/webp",
-          width: null,
-          height: null,
-          sizeBytes: null,
-          sourceUrl,
-          assetPath: null,
-          discordSyntax: `<${animated ? "a" : ""}:${e.name}:${e.id}>`,
-          shortcode: `:${e.name}:`,
-          roles: Array.isArray(e.roles) ? e.roles.map(String) : [],
-          available: e.available !== false,
-        };
-      });
-
-    return {
-      schema,
-      generatedAt,
-      source: {
-        kind: "discord",
-        guildId: guild.id,
-        guildName: guild.name,
-        guildIcon: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=128` : undefined,
-      },
-      pack: { id: packId, name: guild.name, slug, version: 1 },
-      assets: { basePath: "", naming: "discord-cdn-sourceUrl" },
-      emotes,
-    };
+    const emotes = getGuildEmojis(EmojiStore, guild.id).filter(e => e?.id && e?.name).map(e => {
+      const animated = Boolean(e.animated);
+      const format = animated ? "gif" : "webp";
+      return {
+        id: String(e.id),
+        name: String(e.name),
+        aliases: [],
+        animated,
+        format,
+        mime: animated ? "image/gif" : "image/webp",
+        width: null,
+        height: null,
+        sizeBytes: null,
+        sourceUrl: discordEmojiUrl(e.id, animated),
+        assetPath: null,
+        discordSyntax: `<${animated ? "a" : ""}:${e.name}:${e.id}>`,
+        shortcode: `:${e.name}:`,
+        roles: Array.isArray(e.roles) ? e.roles.map(String) : [],
+        available: e.available !== false,
+      };
+    });
+    return { schema, generatedAt, source: { kind: "discord", guildId: guild.id, guildName: guild.name, guildIcon: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=128` : undefined }, pack: { id: packId, name: guild.name, slug, version: 1 }, assets: { basePath: "", naming: "discord-cdn-sourceUrl" }, emotes };
   });
 
-  const manifest = {
-    schema: librarySchema,
-    generatedAt,
-    packs: packs.map(pack => ({
-      id: pack.pack.id,
-      name: pack.pack.name,
-      slug: pack.pack.slug,
-      path: `packs/${pack.pack.id}/emote-pack.json`,
-      emoteCount: pack.emotes.length,
-      animatedCount: pack.emotes.filter(e => e.animated).length,
-      source: { kind: "discord", guildId: pack.source.guildId },
-    })),
-  };
-
+  const manifest = { schema: librarySchema, generatedAt, packs: packs.map(pack => ({ id: pack.pack.id, name: pack.pack.name, slug: pack.pack.slug, path: `packs/${pack.pack.id}/emote-pack.json`, emoteCount: pack.emotes.length, animatedCount: pack.emotes.filter(e => e.animated).length, source: { kind: "discord", guildId: pack.source.guildId } })) };
   const output = { schema: librarySchema, generatedAt, manifest, packs };
   downloadJson("mlnt-emote-packs.json", output);
   console.log(`mlnt exported ${packs.reduce((n, p) => n + p.emotes.length, 0)} emotes from ${packs.length} guild(s).`, output);
