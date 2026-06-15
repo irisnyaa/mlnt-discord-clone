@@ -58,13 +58,26 @@ function Avatar({ src, name, bot }: { src?: string | null; name?: string | null;
 }
 
 export function MessageList({ messages, emotes }: { messages: Message[]; emotes: ClientEmote[] }) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLElement>(null);
+  const stickToBottomRef = useRef(true);
+  const lastMessageId = messages.at(-1)?.id;
+  const lastMessageContent = messages.at(-1)?.content;
+
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
+    const scroller = scrollerRef.current;
+    if (!scroller || !stickToBottomRef.current) return;
+    scroller.scrollTop = scroller.scrollHeight;
+  }, [lastMessageId, lastMessageContent]);
 
   return (
-    <section className="messages">
+    <section
+      ref={scrollerRef}
+      className="messages"
+      onScroll={event => {
+        const el = event.currentTarget;
+        stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      }}
+    >
       {messages.map(message => {
         const isBot = message.role === "assistant";
         const name = isBot ? "mlntcan🤖d" : (message.authorName || "friend");
@@ -81,7 +94,6 @@ export function MessageList({ messages, emotes }: { messages: Message[]; emotes:
           </article>
         );
       })}
-      <div ref={endRef} />
     </section>
   );
 }
