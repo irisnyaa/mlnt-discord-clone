@@ -3,14 +3,12 @@
 import { useRef, useState, useTransition } from "react";
 
 type ComposerProps = {
-  chatId?: string;
-  action: (formData: FormData) => void | Promise<void>;
   placeholder: string;
   disabledAfterSubmit?: boolean;
-  onOptimistic?: (content: string) => void;
+  onSubmitContent: (content: string) => void | Promise<void>;
 };
 
-export function Composer({ chatId, action, placeholder, disabledAfterSubmit = false, onOptimistic }: ComposerProps) {
+export function Composer({ placeholder, disabledAfterSubmit = false, onSubmitContent }: ComposerProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [locked, setLocked] = useState(false);
@@ -22,16 +20,14 @@ export function Composer({ chatId, action, placeholder, disabledAfterSubmit = fa
     if (!value || disabled) return;
     if (disabledAfterSubmit) setLocked(true);
     textRef.current!.value = "";
-    onOptimistic?.(value);
     startTransition(async () => {
-      await action(formData);
+      await onSubmitContent(value);
       if (!disabledAfterSubmit) setLocked(false);
     });
   }
 
   return (
     <form ref={formRef} className="composer-wrap" action={submit}>
-      {chatId ? <input type="hidden" name="chatId" value={chatId} /> : null}
       <div className="composer">
         <textarea
           ref={textRef}

@@ -1,4 +1,3 @@
-import { startChatAction } from "@/app/actions";
 import { NewChatClient } from "@/components/NewChatClient";
 import { Sidebar } from "@/components/Sidebar";
 import { requireUser } from "@/lib/auth";
@@ -19,7 +18,7 @@ export default async function NewChatPage() {
             <div className="top-sub">start typing</div>
           </div>
         </header>
-        <NewChatClient currentUser={{ name: user.name, image: user.image }} action={startChatAction} />
+        <NewChatClient currentUser={{ name: user.name, image: user.image }} />
       </main>
     </div>
   );

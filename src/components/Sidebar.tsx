@@ -12,6 +12,7 @@ export function Sidebar({ chats, activeId }: { chats: ChatRow[]; activeId?: stri
       <div className="brand">
         <span>mlnt</span>
         <small>chat</small>
+        <a className="mobile-close" href="#">×</a>
       </div>
       <nav className="chat-list">
         {chats.map(chat => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic } from "react";
+import { useState } from "react";
 import { Composer } from "@/components/Composer";
 import { renderMessageHtmlClient } from "@/lib/emotes-client";
 
@@ -21,8 +21,25 @@ type ChatClientProps = {
   title: string;
   messages: Message[];
   currentUser: ClientUser;
-  action: (formData: FormData) => void | Promise<void>;
 };
+
+async function readNdjson(res: Response, onEvent: (event: any) => void) {
+  if (!res.body) return;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      onEvent(JSON.parse(line));
+    }
+  }
+}
 
 function messageOnlyEmotes(content: string) {
   const stripped = content.replace(/(<a?:[A-Za-z0-9_]{2,32}:\d{5,}>|:[A-Za-z0-9_-]+\/[A-Za-z0-9_]{2,32}:|:[A-Za-z0-9_]{2,32}:|\s+)/g, "");
@@ -58,28 +75,43 @@ export function MessageList({ messages }: { messages: Message[] }) {
   );
 }
 
-export function ChatClient({ chatId, title, messages, currentUser, action }: ChatClientProps) {
-  const [optimisticMessages, addOptimistic] = useOptimistic(messages, (state, content: string) => [
-    ...state,
-    {
-      id: `pending-${Date.now()}`,
+export function ChatClient({ chatId, title, messages: initialMessages, currentUser }: ChatClientProps) {
+  const [messages, setMessages] = useState(initialMessages);
+
+  async function send(content: string) {
+    const userMessage: Message = {
+      id: `pending-user-${Date.now()}`,
       authorName: currentUser.name,
       authorImage: currentUser.image,
-      role: "user" as const,
+      role: "user",
       content,
       createdAt: new Date().toISOString(),
-    },
-  ]);
+    };
+    const botId = `pending-bot-${Date.now()}`;
+    setMessages(state => [...state, userMessage, { id: botId, authorName: null, authorImage: null, role: "assistant", content: "", createdAt: new Date().toISOString() }]);
+
+    const res = await fetch(`/api/chats/${chatId}/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      setMessages(state => state.map(m => m.id === botId ? { ...m, content: "brb" } : m));
+      return;
+    }
+    await readNdjson(res, event => {
+      if (event.type === "delta") {
+        setMessages(state => state.map(m => m.id === botId ? { ...m, content: m.content + event.content } : m));
+      }
+    });
+  }
 
   return (
     <>
-      <MessageList messages={optimisticMessages} />
-      <Composer
-        chatId={chatId}
-        placeholder={`Message #${title}`}
-        action={action}
-        onOptimistic={addOptimistic}
-      />
+      <MessageList messages={messages} />
+      <Composer placeholder={`Message #${title}`} onSubmitContent={send} />
     </>
   );
 }
+
+export { readNdjson };

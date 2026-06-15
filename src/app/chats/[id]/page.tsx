@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { sendMessageAction } from "@/app/actions";
 import { ChatClient } from "@/components/ChatClient";
 import { Sidebar } from "@/components/Sidebar";
 import { requireUser } from "@/lib/auth";
@@ -29,7 +28,6 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
           title={chat.title}
           messages={messages.map(message => ({ ...message, html: renderMessageHtml(message.content) }))}
           currentUser={{ name: user.name, image: user.image }}
-          action={sendMessageAction}
         />
       </main>
     </div>
