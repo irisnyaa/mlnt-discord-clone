@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
 import { renderMessageHtmlClient, type ClientEmote } from "@/lib/emotes-client";
 
@@ -60,14 +60,16 @@ function Avatar({ src, name, bot }: { src?: string | null; name?: string | null;
 export function MessageList({ messages, emotes }: { messages: Message[]; emotes: ClientEmote[] }) {
   const scrollerRef = useRef<HTMLElement>(null);
   const stickToBottomRef = useRef(true);
-  const lastMessageId = messages.at(-1)?.id;
-  const lastMessageContent = messages.at(-1)?.content;
+  const signature = messages.map(m => `${m.id}:${m.content.length}`).join("|");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller || !stickToBottomRef.current) return;
     scroller.scrollTop = scroller.scrollHeight;
-  }, [lastMessageId, lastMessageContent]);
+    requestAnimationFrame(() => {
+      if (stickToBottomRef.current) scroller.scrollTop = scroller.scrollHeight;
+    });
+  }, [signature]);
 
   return (
     <section
