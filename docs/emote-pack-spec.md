@@ -236,10 +236,11 @@ Discord CDN URL shape:
 
 ```ts
 function discordEmojiUrl(id: string, animated: boolean) {
-  const ext = animated ? "gif" : "webp";
-  return `https://cdn.discordapp.com/emojis/${id}.${ext}?quality=lossless`;
+  return `https://cdn.discordapp.com/emojis/${id}.webp${animated ? "?animated=true&quality=lossless" : "?quality=lossless"}`;
 }
 ```
+
+Animated Discord emotes should prefer animated WebP in this exporter. Some newer/custom animated emotes have valid `webp?animated=true` URLs while `.gif` is not available. Browsers render animated WebP, so this avoids false broken emotes.
 
 ## Implementation order
 

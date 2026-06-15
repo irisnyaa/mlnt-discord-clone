@@ -30,8 +30,10 @@
   }
 
   function discordEmojiUrl(id, animated) {
-    const ext = animated ? "gif" : "webp";
-    return `https://cdn.discordapp.com/emojis/${id}.${ext}?quality=lossless`;
+    // Discord has animated emotes where .gif 404s but animated .webp works.
+    // Modern browsers render animated WebP fine, so export WebP for both static
+    // and animated emotes and mark animated URLs explicitly.
+    return `https://cdn.discordapp.com/emojis/${id}.webp${animated ? "?animated=true&quality=lossless" : "?quality=lossless"}`;
   }
 
   function getWebpack() {
@@ -119,14 +121,14 @@
     const packId = `discord-${guild.id}`;
     const emotes = getGuildEmojis(EmojiStore, guild.id).filter(e => e?.id && e?.name).map(e => {
       const animated = Boolean(e.animated);
-      const format = animated ? "gif" : "webp";
+      const format = "webp";
       return {
         id: String(e.id),
         name: String(e.name),
         aliases: [],
         animated,
         format,
-        mime: animated ? "image/gif" : "image/webp",
+        mime: "image/webp",
         width: null,
         height: null,
         sizeBytes: null,
