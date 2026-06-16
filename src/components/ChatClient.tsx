@@ -122,6 +122,27 @@ export function ChatClient({ chatId, title, messages: initialMessages, currentUs
     };
   }, [chatId]);
 
+  async function rerollLatest() {
+    const latestAssistant = [...messages].reverse().find(message => message.role === "assistant");
+    if (!latestAssistant) return;
+    setMessages(state => state.map(message => message.id === latestAssistant.id ? { ...message, content: "" } : message));
+
+    const res = await fetch(`/api/chats/${chatId}/reroll`, { method: "POST" });
+    if (!res.ok) {
+      setMessages(state => state.map(message => message.id === latestAssistant.id ? { ...message, content: "brb" } : message));
+      return;
+    }
+
+    let assistantId = latestAssistant.id;
+    await readNdjson(res, event => {
+      if (event.type === "ack") assistantId = event.assistantMessageId;
+      if (event.type === "replace") {
+        setMessages(state => state.map(message => message.id === assistantId ? { ...message, content: event.content } : message));
+      }
+    });
+    await syncMessages();
+  }
+
   async function send(content: string) {
     const stamp = Date.now();
     const pendingUserId = `pending-user-${stamp}`;
@@ -165,6 +186,9 @@ export function ChatClient({ chatId, title, messages: initialMessages, currentUs
   return (
     <>
       <MessageList messages={messages} emotes={emotes} />
+      <div className="chat-tools">
+        <button className="btn secondary" type="button" onClick={() => void rerollLatest()} disabled={!messages.some(message => message.role === "assistant")}>Reroll latest</button>
+      </div>
       <Composer placeholder={`Message #${title}`} onSubmitContent={send} />
     </>
   );
